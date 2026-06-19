@@ -7,8 +7,6 @@ pip install tkinter numpy pil
 
 - Then run or debug the script through programming editors such as VSCode.
 
-- For use in the Windows environment, the [exe] output is also taken through [pyinstaller].
-
 ### Steps to get exe output through pyinstaller:
 1. Install [pyinstaller] using the following command 
 ```BASH
