@@ -2,7 +2,7 @@ The program is written in the powerful Python language and its main task is pers
 ### How to use:
 - To use the required module and libraries, including Tkinter, numpy, PIL, install using the following command
 ```BASH
-pip install tkinter numpy pil
+pip install tkinter numpy pil tkinterdnd2
 ```
 
 - Then run or debug the script through programming editors such as VSCode.
