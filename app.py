@@ -1,16 +1,19 @@
 import os
 import time
+import sys
 
 from PIL import Image, ImageTk, ImageFilter, ImageEnhance
 import tkinter as tk
 from tkinter.filedialog import askopenfilename, SaveFileDialog, asksaveasfile
 from tkinter import messagebox
 
+from tkinterdnd2 import DND_FILES, TkinterDnD
+
 import numpy
 import win32api
 import tempfile
 
-mainForm = tk.Tk()
+mainForm = TkinterDnD.Tk()
 
 def on_closing():
   global ifChange
@@ -78,6 +81,8 @@ coordinateVal = []
 coordinateImg = []
 polygonDrawed = False
 setSizeFlag = False
+lastFile = ""
+filesarray = []
 
 def resetValues():
   global contrastVal
@@ -116,6 +121,8 @@ def open_file(filepath = None):
     global imageViewer_height
     global imageViewer_top
     global imageViewer_left
+    global lastFile
+    global filesarray
 
     if filepath is None:
         filepath = askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.bmp *.png"), ("All Files", "*.*")])
@@ -124,9 +131,17 @@ def open_file(filepath = None):
     resetValues()
     filePathStr.set(filepath)
     img = Image.open(filepath)
+    
+    if filepath in filesarray:
+      pass
+    else:
+      filelist.insert("end", os.path.basename(filepath).split('/')[-1])
+      filesarray.append(filepath)
+
+    print (filesarray)
+    lastFile = filepath
     enh = img
     sizeLbl.config(text=f"Size: {img.width} x {img.height} pixel")
-    print
     if img.width > imageViewer_width:
         p = img.width / imageViewer_width
         new_w = int(img.width/p)
@@ -167,20 +182,21 @@ def save_file(filepath = None):
   if enh.width != pic.width or enh.height != pic.height:
     xT = enh.width / pic.width
     yT = enh.height / pic.height
-    
-  for c in coordinateImg:
-    xx = c[1]
-    yy = c[2]
-      
-    if xT<1.0: xx /= xT
-    else: xx *= xT
-    
-    if yT<1.0: yy /= yT
-    else: yy *= yT
-    
-    srcPoints.append((xx, yy))
   
-  pic = transformed(pic, srcPoints)
+  if len(coordinateImg) > 0:
+    for c in coordinateImg:
+      xx = c[1]
+      yy = c[2]
+      
+      if xT<1.0: xx /= xT
+      else: xx *= xT
+    
+      if yT<1.0: yy /= yT
+      else: yy *= yT
+    
+      srcPoints.append((xx, yy))
+    pic = transformed(pic, srcPoints)
+
   pic.save(filepath)
   ifChange = False
 
@@ -193,10 +209,12 @@ def save_as_file():
     save_file(f.name)
 
 def getTempfile():
+   global lastFile
    tmp = tempfile.TemporaryDirectory()
    tmp = tmp.name.split('\\')[:-1]
    tmp = '\\'.join(tmp)
-   fil = tmp + "\mpic.jpg"
+   fn, ext = os.path.splitext(lastFile)
+   fil = tmp + "\mpic" + ext
    return fil
 
 def print_file():
@@ -362,7 +380,7 @@ def drawPolygon():
   imageViewer.create_polygon(points, outline="red", fill="white", stipple="gray50", width=3, tags="polygon")
 
 def mouse_enter(event):
-    print("Mouse over")
+    print(event)
 
 def mouse_leave(event):
     print ("Hover over me!")
@@ -482,6 +500,19 @@ def setSize(sz='A4'):
   imageViewer.create_image(((imageViewer_width/2) - (enh.width/2)),0,image=photoFile, anchor="nw")
   setSizeFlag = True
 
+def drop_to_list(event):
+  global lastFile
+  fn = event.data
+  fn = fn.replace('{','')
+  fn = fn.replace('}','')
+  if lastFile!=fn:
+    open_file(fn)
+
+def listbox_click_item(event):
+  #open_file(str((filelist.get(tk.ACTIVE))))
+  #print(filelist.curselection()[0])
+  open_file(str((filesarray[filelist.curselection()[0]])))
+
 openBtn = tk.Button(openFrame, text="Open", command=open_file, width=5)
 openBtn.place(x=5, y=5)
 #addrFilePath = tk.Entry(openFrame, textvariable=filePathStr, state="readonly", width=110).place(x=55, y=5)
@@ -507,6 +538,11 @@ imageViewer.bind("<Double-1>", mouse_ldbclick)
 imageViewer.bind("<Double-3>", mouse_rdbclick)
 #imageViewer.bind("<Button-3>", mouse_popup)
 #imageViewer.bind("<Motion>", mouse_motion)
+imageViewer.configure(cursor='hand1')
+
+imageViewer.drop_target_register(DND_FILES)
+imageViewer.dnd_bind('<<Drop>>', drop_to_list)
+
 mainForm.bind('<KeyRelease>', key_released)
 
 sizeLbl = tk.Label(controlFrame, text="Size: 0 x 0 pixel", width=30)
@@ -518,17 +554,21 @@ tlLbl.place(x=10, y=30)
 autoBtn = tk.Button(controlFrame, text="Auto Enhancement", command=lambda: applyChanges(bright=1.2, contrast=1.2, sharp=2.5, color=1.0), width=30)
 autoBtn.place(x=10, y=60)
 
-brightnessScale = tk.Scale(controlFrame, from_=-100, to=100, label="Brightness" , length=(mainForm_W*0.3)-20, orient="horizontal", command=brightnessChange)
+brightnessScale = tk.Scale(controlFrame, from_=-100, to=100, label="Brightness" , length=(mainForm_W*0.3)-30, orient="horizontal", command=brightnessChange)
 brightnessScale.place(x=10, y=90, anchor="nw")
 
-contrastScale = tk.Scale(controlFrame, from_=-100, to=100, label="Contrast" , length=(mainForm_W*0.3)-20, orient="horizontal", command=contrastChange)
+contrastScale = tk.Scale(controlFrame, from_=-100, to=100, label="Contrast" , length=(mainForm_W*0.3)-30, orient="horizontal", command=contrastChange)
 contrastScale.place(x=10, y=145, anchor="nw")
 
-sharpnessScale = tk.Scale(controlFrame, from_=-100, to=100, label="Sharpness" , length=(mainForm_W*0.3)-20, orient="horizontal", command=sharpnessChange)
+sharpnessScale = tk.Scale(controlFrame, from_=-100, to=100, label="Sharpness" , length=(mainForm_W*0.3)-30, orient="horizontal", command=sharpnessChange)
 sharpnessScale.place(x=10, y=200, anchor="nw")
 
-colorScale = tk.Scale(controlFrame, from_=-100, to=100, label="Color" , length=(mainForm_W*0.3)-20, orient="horizontal", command=colorChange)
+colorScale = tk.Scale(controlFrame, from_=-100, to=100, label="Color" , length=(mainForm_W*0.3)-30, orient="horizontal", command=colorChange)
 colorScale.place(x=10, y=260, anchor="nw")
+
+filelist = tk.Listbox(controlFrame, selectmode=tk.SINGLE, width=35, height=10)
+filelist.place(x=10, y=325, anchor="nw")
+filelist.bind('<<ListboxSelect>>', listbox_click_item)
 
 contaxtMenu= tk.Menu(imageFrame, tearoff = 0)
 contaxtMenu.add_command(label ="Reload", command=lambda: open_file(filePathStr.get()))
@@ -536,6 +576,8 @@ contaxtMenu.add_command(label ="Reload", command=lambda: open_file(filePathStr.g
 contaxtMenu.add_command(label ="Save", command=save_file)
 
 #open_file(f"{os.path.dirname(__file__)}/test.jpg")
+if len(sys.argv) > 1: 
+  open_file(sys.argv[1])
 
 mainForm.mainloop()
 
